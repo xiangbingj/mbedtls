@@ -37,7 +37,6 @@
 #   * GCC and Clang (recent enough for using ASan with gcc and MemSan with clang, or valgrind)
 #   * arm-gcc and mingw-gcc
 #   * ArmCC 5 and ArmCC 6, unless invoked with --no-armcc
-#   * Yotta build dependencies, unless invoked with --no-yotta
 #   * OpenSSL and GnuTLS command line tools, recent enough for the
 #     interoperability tests. If they don't support SSLv3 then a legacy
 #     version of these tools must be present as well (search for LEGACY
@@ -96,7 +95,6 @@ FORCE=0
 KEEP_GOING=0
 RELEASE=0
 RUN_ARMCC=1
-YOTTA=1
 
 # Default commands, can be overriden by the environment
 : ${OPENSSL:="openssl"}
@@ -126,11 +124,9 @@ General options:
   -m|--memory           Additional optional memory tests.
      --armcc            Run ARM Compiler builds (on by default).
      --no-armcc         Skip ARM Compiler builds.
-     --no-yotta         Skip yotta module build.
      --out-of-source-dir=<path>  Directory used for CMake out-of-source build tests.
   -r|--release-test     Run this script in release mode. This fixes the seed value to 1.
   -s|--seed             Integer seed value to use for this test run.
-     --yotta            Build yotta module (on by default).
 
 Tool path options:
      --armc5-bin-dir=<ARMC5_bin_dir_path>       ARM Compiler 5 bin directory.
@@ -149,7 +145,6 @@ cleanup()
 {
     command make clean
 
-    find . -name yotta -prune -o -iname '*cmake*' -not -name CMakeLists.txt -exec rm -rf {} \+
     rm -f include/Makefile include/mbedtls/Makefile programs/*/Makefile
     git update-index --no-skip-worktree Makefile library/Makefile programs/Makefile tests/Makefile
     git checkout -- Makefile library/Makefile programs/Makefile tests/Makefile
@@ -257,9 +252,6 @@ while [ $# -gt 0 ]; do
         --no-armcc)
             RUN_ARMCC=0
             ;;
-        --no-yotta)
-            YOTTA=0
-            ;;
         --openssl)
             shift
             OPENSSL="$1"
@@ -279,9 +271,6 @@ while [ $# -gt 0 ]; do
             shift
             SEED="$1"
             ;;
-        --yotta)
-            YOTTA=1
-            ;;
         *)
             echo >&2 "Unknown option: $1"
             echo >&2 "Run $0 --help for usage."
@@ -292,19 +281,9 @@ while [ $# -gt 0 ]; do
 done
 
 if [ $FORCE -eq 1 ]; then
-    if [ $YOTTA -eq 1 ]; then
-        rm -rf yotta/module "$OUT_OF_SOURCE_DIR"
-    fi
     git checkout-index -f -q $CONFIG_H
     cleanup
 else
-
-    if [ $YOTTA -ne 0 ] && [ -d yotta/module ]; then
-        err_msg "Warning - there is an existing yotta module in the directory 'yotta/module'"
-        echo "You can either delete your work and retry, or force the test to overwrite the"
-        echo "test by rerunning the script as: $0 --force"
-        exit 1
-    fi
 
     if [ -d "$OUT_OF_SOURCE_DIR" ]; then
         echo "Warning - there is an existing directory at '$OUT_OF_SOURCE_DIR'" >&2
@@ -471,14 +450,6 @@ tests/scripts/doxygen.sh
 ################################################################
 #### Build and test many configurations and targets
 ################################################################
-
-if [ $RUN_ARMCC -ne 0 ] && [ $YOTTA -ne 0 ]; then
-    # Note - use of yotta is deprecated, and yotta also requires armcc to be on the
-    # path, and uses whatever version of armcc it finds there.
-    msg "build: create and build yotta module" # ~ 30s
-    cleanup
-    record_status tests/scripts/yotta-build.sh
-fi
 
 msg "build: cmake, gcc, ASan" # ~ 1 min 50s
 cleanup
